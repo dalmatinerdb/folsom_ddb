@@ -83,7 +83,7 @@ init([]) ->
             Ref = erlang:start_timer(Interval, self(), tick),
             {ok, #state{ref = Ref, host = Host, port = Port, interval = Interval,
                         buffer_size = BufferSize, header = Header, prefix = Prefix,
-                        vm_metrics = VMMetrics}};
+                        vm_metrics = VMMetrics, socket = Socket}};
         _ ->
             {ok, #state{}}
     end.
