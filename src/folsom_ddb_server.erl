@@ -76,7 +76,7 @@ init([]) ->
     {ok, PfxS} = application:get_env(folsom_ddb, prefix),
     Header = dproto_udp:encode_header(list_to_binary(Bucket)),
     Prefix = <<(list_to_binary(PfxS))/binary, ".",
-               (erlang:atom_to_binary(node()))/binary >>,
+               (erlang:atom_to_binary(node(), utf8))/binary >>,
     Ref = case application:get_env(folsom_ddb, enabled) of
               {ok, true} ->
                   erlang:start_timer(Interval, self(), tick);
@@ -320,14 +320,14 @@ build_histogram([_ | H], Prefix, Time, Acc) ->
     build_histogram(H, Prefix, Time, Acc).
 
 metric_name(N1) when is_atom(N1) ->
-    erlang:binary_to_atom(N1);
+    erlang:binary_to_atom(N1, utf8);
 metric_name({N1, N2}) when is_atom(N1), is_atom(N2) ->
-    <<(erlang:binary_to_atom(N1))/binary, ".",
-      (erlang:binary_to_atom(N2))/binary>>;
+    <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
+      (erlang:atom_to_binary(N2, utf8))/binary>>;
 metric_name({N1, N2, N3}) when is_atom(N1), is_atom(N2), is_atom(N3) ->
-    <<(erlang:binary_to_atom(N1))/binary, ".",
-      (erlang:binary_to_atom(N2))/binary, ".",
-      (erlang:binary_to_atom(N3))/binary>>.
+    <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
+      (erlang:atom_to_binary(N2, utf8))/binary, ".",
+      (erlang:atom_to_binary(N3, utf8))/binary>>.
 
 timestamp() ->
     {Meg, S, _} = os:timestamp(),
