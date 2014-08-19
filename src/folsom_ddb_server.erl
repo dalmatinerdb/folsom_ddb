@@ -262,43 +262,43 @@ build_histogram([], _, _, Acc) ->
 
 build_histogram([{min, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".min">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{max, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".max">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{arithmetic_mean, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".arithmetic_mean">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{geometric_mean, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".geometric_mean">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{harmonic_mean, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".harmonic_mean">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{median, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".median">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{variance, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".variance">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{standard_deviation, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".standard_deviation">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{skewness, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".skewness">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{kurtosis, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".kurtosis">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([{percentile,
                   [{50, P50}, {75, P75}, {90, P90}, {95, P95}, {99, P99},
@@ -309,12 +309,12 @@ build_histogram([{percentile,
     E4 = ?EP(<<Pfx/binary, ".p95">>, Time, round(P95)),
     E5 = ?EP(<<Pfx/binary, ".p99">>, Time, round(P99)),
     E6 = ?EP(<<Pfx/binary, ".p999">>, Time, round(P999)),
-    build_histogram(H, Pfx, Time, <<Acc, E1/binary, E2/binary, E3/binary,
+    build_histogram(H, Pfx, Time, <<Acc/binary, E1/binary, E2/binary, E3/binary,
                                     E4/binary, E5/binary, E6/binary>>);
 
 build_histogram([{n, V} | H], Prefix, Time, Acc) ->
     E = ?EP(<<Prefix/binary, ".count">>, Time, V),
-    build_histogram(H, Prefix, Time, <<Acc, E/binary>>);
+    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
 
 build_histogram([_ | H], Prefix, Time, Acc) ->
     build_histogram(H, Prefix, Time, Acc).
