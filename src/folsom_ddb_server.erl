@@ -72,7 +72,12 @@ init([]) ->
     Header = dproto_udp:encode_header(list_to_binary(Bucket)),
     Prefix = <<(list_to_binary(PfxS))/binary, ".",
                (erlang:atom_to_binary(node()))/binary >>,
-    Ref = erlang:start_timer(Interval, self(), tick),
+    Ref = case application:get_env(folsom_ddb, enabled) of
+              {ok, true} ->
+                  erlang:start_timer(Interval, self(), tick);
+              _ ->
+                  undefined
+          end,
     {ok, #state{ref = Ref, host = Host, port = Port, interval = Interval,
                 buffer_size = BufferSize, header = Header, prefix = Prefix,
                 vm_metrics = VMMetrics}}.

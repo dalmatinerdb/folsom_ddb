@@ -1,0 +1,42 @@
+%% -*- erlang -*-
+
+%% @doc Enable or disable the DalmatinerDB Folsom storage.
+{mapping, "folsom_ddb.enabled", "folsom_ddb.enabled",
+ [{default, on},
+  {datatype, {flag, true, false}}]}.
+
+%% @doc The DalmatinerDB backend ip and port.
+{mapping, "folsom_ddb.ip", "folsom_ddb.endpoint",
+ [{default, {"127.0.0.1", 4444}},
+  {datatype, ip}]}.
+
+%% @doc The bucket to store folsom data in.
+{mapping, "folsom_ddb.bucket", "folsom_ddb.bucket",
+ [{default, "folsom"},
+  {datatype, string}]}.
+
+%% @doc The prefix that is added to each metric, in total the metric
+%% will be contructed <PREFIX>.<NODE>.<Metric Path>
+{mapping, "folsom_ddb.prefix", "folsom_ddb.prefix",
+ [{default, "folsom"},
+  {datatype, string}]}.
+
+%% @doc The approximitely send buffer size, please keep in mind that it is
+%% not a hard limit so select it a decent bit over the receive buffer of
+%% DalmatinerDB.
+%%
+%% Especially with histograms the buffer size can be overstepped sicne it is
+%% checked only after each metric.
+{mapping, "folsom_ddb.buffer_size", "folsom_ddb.buffer_size",
+ [{default, "4KB"},
+  {datatype, bytesize}]}.
+
+%% @doc The interval in which folsom data is checked, default is 1 Second.
+{mapping, "folsom_ddb.interval", "folsom_ddb.interval",
+ [{default, "1s"},
+  {datatype, {duration, ms}}]}.
+
+%% @doc Enables or disables metrics for the Erlang VM.
+{mapping, "folsom_ddb.vm_metrics", "folsom_ddb.vm_metrics",
+ [{default, on},
+  {datatype, {flag, true, false}}]}.
