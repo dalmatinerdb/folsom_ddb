@@ -225,7 +225,7 @@ do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
 do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
            [{N, [{type, duration}]} | Spec], Acc) ->
     K = <<Prefix/binary, ".", (metric_name(N))/binary>>,
-    Acc1 = build_histogram(folsom_metrics:get_histogram_statistics(N),
+    Acc1 = build_histogram(folsom_metrics:get_metric_value(N),
                            K, Time, Acc),
     do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Acc1);
 
