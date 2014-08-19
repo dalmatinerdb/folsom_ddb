@@ -2,7 +2,7 @@
 
 %% @doc Enable or disable the DalmatinerDB Folsom storage.
 {mapping, "folsom_ddb.enabled", "folsom_ddb.enabled",
- [{default, on},
+ [{default, false},
   {datatype, {flag, true, false}}]}.
 
 %% @doc The DalmatinerDB backend ip and port.
@@ -38,5 +38,5 @@
 
 %% @doc Enables or disables metrics for the Erlang VM.
 {mapping, "folsom_ddb.vm_metrics", "folsom_ddb.vm_metrics",
- [{default, on},
+ [{default, false},
   {datatype, {flag, true, false}}]}.

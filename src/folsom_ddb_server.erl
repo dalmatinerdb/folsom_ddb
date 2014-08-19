@@ -67,7 +67,12 @@ init([]) ->
     {ok, {Host, Port}} = application:get_env(folsom_ddb, endpoint),
     {ok, Interval} = application:get_env(folsom_ddb, interval),
     {ok, BufferSize} = application:get_env(folsom_ddb, buffer_size),
-    {ok, VMMetrics} = application:get_env(folsom_ddb, vm_metrics),
+    VMMetrics = case application:get_env(folsom_ddb, vm_metrics) of
+                    {ok, true} ->
+                        [];
+                    _ ->
+                        []
+                end,
     {ok, PfxS} = application:get_env(folsom_ddb, prefix),
     Header = dproto_udp:encode_header(list_to_binary(Bucket)),
     Prefix = <<(list_to_binary(PfxS))/binary, ".",
