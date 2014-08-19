@@ -1,0 +1,12 @@
+{application, folsom_ddb,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { folsom_ddb_app, []}},
+  {env, []}
+ ]}.
