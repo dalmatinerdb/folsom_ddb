@@ -62,30 +62,31 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    process_flag(trap_exit, true),
-    {ok, Bucket} = application:get_env(folsom_ddb, bucket),
-    {ok, {Host, Port}} = application:get_env(folsom_ddb, endpoint),
-    {ok, Interval} = application:get_env(folsom_ddb, interval),
-    {ok, BufferSize} = application:get_env(folsom_ddb, buffer_size),
-    VMMetrics = case application:get_env(folsom_ddb, vm_metrics) of
-                    {ok, true} ->
-                        [];
-                    _ ->
-                        []
-                end,
-    {ok, PfxS} = application:get_env(folsom_ddb, prefix),
-    Header = dproto_udp:encode_header(list_to_binary(Bucket)),
-    Prefix = <<(list_to_binary(PfxS))/binary, ".",
-               (erlang:atom_to_binary(node(), utf8))/binary >>,
-    Ref = case application:get_env(folsom_ddb, enabled) of
-              {ok, true} ->
-                  erlang:start_timer(Interval, self(), tick);
-              _ ->
-                  undefined
-          end,
-    {ok, #state{ref = Ref, host = Host, port = Port, interval = Interval,
-                buffer_size = BufferSize, header = Header, prefix = Prefix,
-                vm_metrics = VMMetrics}}.
+    case application:get_env(folsom_ddb, enabled) of
+        {ok, true} ->
+            process_flag(trap_exit, true),
+            {ok, Bucket} = application:get_env(folsom_ddb, bucket),
+            {ok, {Host, Port}} = application:get_env(folsom_ddb, endpoint),
+            {ok, Interval} = application:get_env(folsom_ddb, interval),
+            {ok, BufferSize} = application:get_env(folsom_ddb, buffer_size),
+            VMMetrics = case application:get_env(folsom_ddb, vm_metrics) of
+                            {ok, true} ->
+                                [];
+                            _ ->
+                                []
+                        end,
+            {ok, Socket} = gen_udp:open(0, [{active, false}, binary]),
+            {ok, PfxS} = application:get_env(folsom_ddb, prefix),
+            Header = dproto_udp:encode_header(list_to_binary(Bucket)),
+            Prefix = <<(list_to_binary(PfxS))/binary, ".",
+                       (erlang:atom_to_binary(node(), utf8))/binary >>,
+            Ref = erlang:start_timer(Interval, self(), tick),
+            {ok, #state{ref = Ref, host = Host, port = Port, interval = Interval,
+                        buffer_size = BufferSize, header = Header, prefix = Prefix,
+                        vm_metrics = VMMetrics}};
+        _ ->
+            {ok, #state{}}
+    end.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -161,6 +162,8 @@ handle_info(_Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
+terminate(_Reason, #state{socket = undefined}) ->
+    ok;
 terminate(_Reason, #state{socket = S}) ->
     gen_udp:close(S),
     ok.
