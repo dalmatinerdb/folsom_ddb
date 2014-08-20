@@ -78,8 +78,7 @@ init([]) ->
             {ok, Socket} = gen_udp:open(0, [{active, false}, binary]),
             {ok, PfxS} = application:get_env(folsom_ddb, prefix),
             Header = dproto_udp:encode_header(list_to_binary(Bucket)),
-            Prefix = <<(list_to_binary(PfxS))/binary, ".",
-                       (erlang:atom_to_binary(node(), utf8))/binary >>,
+            Prefix = list_to_binary(PfxS),
             Ref = erlang:start_timer(Interval, self(), tick),
             {ok, #state{ref = Ref, host = Host, port = Port, interval = Interval,
                         buffer_size = BufferSize, header = Header, prefix = Prefix,
@@ -330,8 +329,36 @@ metric_name({N1, N2}) when is_atom(N1), is_atom(N2) ->
 metric_name({N1, N2, N3}) when is_atom(N1), is_atom(N2), is_atom(N3) ->
     <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
       (erlang:atom_to_binary(N2, utf8))/binary, ".",
-      (erlang:atom_to_binary(N3, utf8))/binary>>.
+      (erlang:atom_to_binary(N3, utf8))/binary>>;
+metric_name({N1, N2, N3}) when is_atom(N1), is_atom(N2), is_atom(N3) ->
+    <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
+      (erlang:atom_to_binary(N2, utf8))/binary, ".",
+      (erlang:atom_to_binary(N3, utf8))/binary>>;
+metric_name({N1, N2, N3, N4}) when is_atom(N1), is_atom(N2), is_atom(N3), is_atom(N4) ->
+    <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
+      (erlang:atom_to_binary(N2, utf8))/binary, ".",
+      (erlang:atom_to_binary(N3, utf8))/binary, ".",
+      (erlang:atom_to_binary(N4, utf8))/binary>>;
+metric_name(A) when is_atom(A) ->
+    erlang:atom_to_binary(A, utf8);
+metric_name(B) when is_binary(B) ->
+    B;
+metric_name(L) when is_list(L) ->
+    erlang:list_to_binary(L);
+metric_name(T) when is_tuple(T) ->
+    metric_name(tuple_to_list(T),<<>>).
+
+metric_name([N | R], <<>>) ->
+    metric_name(R, metric_name(N));
+
+metric_name([N | R], Acc) ->
+    metric_name(R, <<Acc/binary, ".", (metric_name(N))/binary>>);
+
+metric_name([], Acc) ->
+    Acc.
 
 timestamp() ->
     {Meg, S, _} = os:timestamp(),
     Meg*1000000 + S.
+
+

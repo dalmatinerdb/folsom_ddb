@@ -16,7 +16,7 @@
   {datatype, string}]}.
 
 %% @doc The prefix that is added to each metric, in total the metric
-%% will be contructed <PREFIX>.<NODE>.<Metric Path>
+%% will be contructed <PREFIX>.<Metric Path>
 {mapping, "folsom_ddb.prefix", "folsom_ddb.prefix",
  [{default, "folsom"},
   {datatype, string}]}.
