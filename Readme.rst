@@ -7,13 +7,13 @@ A storage plugin for folsom that stores data into `DalmatinerDB <https://dalmati
 Configuration
 =============
 
-A `cuttlefish <https://github.com/basho/cuttlefish>`_ schema file is provided in the `priv` directory otherwise the following app.config parameters are valid:
+A `cuttlefish <https://github.com/basho/cuttlefish>`_ schema file is provided in the ``priv`` directory otherwise the following app.config parameters are valid:
 
 enabled
-    `true` or `false`, enables or disables the entire collection, can be used to include it in systems that do not run DalmatinerDB causing 0 overhead.
+    ``true`` or ``false``, enables or disables the entire collection, can be used to include it in systems that do not run DalmatinerDB causing 0 overhead.
 
 ip
-    `{Host, Port}` the Host and Port of the DalmatinerDB instance to send to.
+    ``{Host, Port}`` the Host and Port of the DalmatinerDB instance to send to.
 
 bucket
     A string (not binary) of the bucket to use to store data.
@@ -33,4 +33,4 @@ interval
     Time between collection runs in milliseconds, 1000 (1 second) is a good number.
 
 vm_metrics
-   `true` or `false`, enable colection of VM metrics.
+   ``true`` or ``false``, enable colection of VM metrics.
