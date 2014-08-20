@@ -22,7 +22,7 @@ prefix
     A string (not binary), the prefix to ad to each metric, the nodename is NOT automatically included.
 
 buffer_size
-     The approximitely send buffer size, please keep in mind that it is
+     The **approximitely** send buffer size, please keep in mind that it is
      not a hard limit so select it a decent bit over the receive buffer of
      DalmatinerDB.
 
@@ -30,7 +30,7 @@ buffer_size
      checked only after each metric.
 
 interval
-    Time between collection runs in milliseconds, 1000 (1 second) is a good number.
+    Time between collection runs in milliseconds, ``1000`` (1 second) is a good number.
 
 vm_metrics
    ``true`` or ``false``, enable colection of VM metrics.
