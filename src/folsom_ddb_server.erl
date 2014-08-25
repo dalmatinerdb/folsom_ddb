@@ -23,13 +23,13 @@
 -record(state, {
           ref :: reference(),
           socket :: gen_udp:socket(),
-          host :: inet:ip_address() | inet:hostname(),
-          port :: inet:port_number(),
-          header :: binary(),
-          interval :: pos_integer(),
-          vm_metrics :: boolean(),
-          buffer_size :: pos_integer(),
-          prefix :: binary()
+          host = "localhost" :: inet:ip_address() | inet:hostname(),
+          port = 4444 :: inet:port_number(),
+          header = <<>> :: binary(),
+          interval = 1000 :: pos_integer(),
+          vm_metrics = [] :: list(),
+          buffer_size = 4096 :: pos_integer(),
+          prefix = <<"folsom">>:: binary()
          }).
 
 %%%===================================================================
@@ -182,15 +182,27 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+-spec do_vm_metrics(
+        gen_udp:socket(), inet:ip_address() | inet:hostname(), inet:port_number(),
+        Header :: binary(), Prefix :: binary(), Time :: pos_integer(),
+        MaxSize ::pos_integer(), Spec :: list(), Acc :: binary()) ->
+                           binary().
+
+
+do_vm_metrics(_Socket, _Host, _Port, _Header, _Prefix, _Time, _MaxSize, [],
+              Acc) ->
+    Acc;
+
 do_vm_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Acc)
   when byte_size(Acc) >= MaxSize ->
     ok = gen_udp:send(Socket, Host, Port, Acc),
     do_vm_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec,
                   Header);
 
-do_vm_metrics(_Socket, _Host, _Port, _Header, _Prefix, _Time, _MaxSize, [],
+do_vm_metrics(Socket, Host, Port, Header, Prefix, Time, MaxSize, [_|Spec],
               Acc) ->
-    Acc.
+    do_vm_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec,
+                  Acc).
 
 do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Acc)
   when byte_size(Acc) >= MaxSize ->
@@ -322,7 +334,7 @@ build_histogram([_ | H], Prefix, Time, Acc) ->
     build_histogram(H, Prefix, Time, Acc).
 
 metric_name(N1) when is_atom(N1) ->
-    erlang:binary_to_atom(N1, utf8);
+    erlang:atom_to_binary(N1, utf8);
 metric_name({N1, N2}) when is_atom(N1), is_atom(N2) ->
     <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
       (erlang:atom_to_binary(N2, utf8))/binary>>;
