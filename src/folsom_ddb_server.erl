@@ -12,24 +12,20 @@
 
 %% API
 -export([start_link/0]).
+-ignore_xref([start_link/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
--define(EP(K, T, V), dproto_udp:encode_points(K, T, V)).
 
 -record(state, {
           ref :: reference(),
-          socket :: gen_udp:socket(),
-          host = "localhost" :: inet:ip_address() | inet:hostname(),
-          port = 4444 :: inet:port_number(),
-          header = <<>> :: binary(),
+          ddb = dunefined,
           interval = 1000 :: pos_integer(),
           vm_metrics = [] :: list(),
-          buffer_size = 4096 :: pos_integer(),
-          prefix = <<"folsom">>:: binary()
+          prefix = [<<"folsom">>]:: [binary()]
          }).
 
 %%%===================================================================
@@ -40,7 +36,7 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link() -> {ok, Pid} | ignore | {error, DDBrror}
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
@@ -62,27 +58,25 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    case application:get_env(folsom_ddb, enabled) of
-        {ok, true} ->
+    case application:get_env(folsom_ddb, endpoint) of
+        {ok, {Host, Port}} ->
             process_flag(trap_exit, true),
-            {ok, Bucket} = application:get_env(folsom_ddb, bucket),
-            {ok, {Host, Port}} = application:get_env(folsom_ddb, endpoint),
+            {ok, BucketS} = application:get_env(folsom_ddb, bucket),
+            Bucket = list_to_binary(BucketS),
+            {ok, PrefixS} = application:get_env(folsom_ddb, prefix),
+            Prefix = list_to_binary(PrefixS),
             {ok, Interval} = application:get_env(folsom_ddb, interval),
-            {ok, BufferSize} = application:get_env(folsom_ddb, buffer_size),
             VMMetrics = case application:get_env(folsom_ddb, vm_metrics) of
                             {ok, true} ->
                                 [];
                             _ ->
                                 []
                         end,
-            {ok, Socket} = gen_udp:open(0, [{active, false}, binary]),
-            {ok, PfxS} = application:get_env(folsom_ddb, prefix),
-            Header = dproto_udp:encode_header(list_to_binary(Bucket)),
-            Prefix = list_to_binary(PfxS),
+            {ok, DDB} = ddb_tcp:connect(Host, Port),
+            {ok, DDB1} = ddb_tcp:stream_mode(Bucket, Interval div 1000, DDB),
             Ref = erlang:start_timer(Interval, self(), tick),
-            {ok, #state{ref = Ref, host = Host, port = Port, interval = Interval,
-                        buffer_size = BufferSize, header = Header, prefix = Prefix,
-                        vm_metrics = VMMetrics, socket = Socket}};
+            {ok, #state{ref = Ref, interval = Interval, prefix = [Prefix],
+                        vm_metrics = VMMetrics, ddb = DDB1}};
         _ ->
             {ok, #state{}}
     end.
@@ -129,23 +123,15 @@ handle_cast(_Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({timeout, _R, tick},
-            #state{ref = _R, interval = FlushInterval, socket = Socket,
-                   host = Host, port = Port, buffer_size = MaxSize,
-                   vm_metrics = VMSpec, header = Header, prefix = Prefix}
+            #state{ref = _R, interval = FlushInterval, ddb = DDB,
+                   vm_metrics = VMSpec, prefix = Prefix}
             = State) ->
     Time = timestamp(),
-    Acc = do_vm_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
-                        VMSpec, Header),
+    DDB1 = do_vm_metrics(Prefix, Time, VMSpec, DDB),
     Spec = folsom_metrics:get_metrics_info(),
-    case do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec,
-                    Acc) of
-        <<>> ->
-            ok;
-        Acc1 ->
-            ok = gen_udp:send(Socket, Host, Port, Acc1)
-    end,
+    DDB2 = do_metrics(Prefix, Time, Spec, DDB1),
     Ref = erlang:start_timer(FlushInterval, self(), tick),
-    {noreply, State#state{ref = Ref}};
+    {noreply, State#state{ref = Ref, ddb = DDB2}};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -161,10 +147,10 @@ handle_info(_Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, #state{socket = undefined}) ->
+terminate(_Reason, #state{ddb = undefined}) ->
     ok;
-terminate(_Reason, #state{socket = S}) ->
-    gen_udp:close(S),
+terminate(_Reason, #state{ddb = DDB}) ->
+    ddb_tcp:close(DDB),
     ok.
 
 %%--------------------------------------------------------------------
@@ -172,77 +158,51 @@ terminate(_Reason, #state{socket = S}) ->
 %% @doc
 %% Convert process state when code is changed
 %%
-%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% @spec code_change(OldVsn, State, DDBxtra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
+code_change(_OldVsn, State, _DDBxtra) ->
     {ok, State}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
--spec do_vm_metrics(
-        gen_udp:socket(), inet:ip_address() | inet:hostname(), inet:port_number(),
-        Header :: binary(), Prefix :: binary(), Time :: pos_integer(),
-        MaxSize ::pos_integer(), Spec :: list(), Acc :: binary()) ->
-                           binary().
+do_vm_metrics(_Prefix, _Time, [], DDB) ->
+    DDB;
+
+do_vm_metrics(Prefix, Time, [_|Spec], DDB) ->
+    do_vm_metrics(Prefix, Time, Spec, DDB).
 
 
-do_vm_metrics(_Socket, _Host, _Port, _Header, _Prefix, _Time, _MaxSize, [],
-              Acc) ->
-    Acc;
+do_metrics(Prefix, Time, [{N, [{type, histogram}]} | Spec], DDB) ->
+    Prefix1 = [Prefix, metric_name(N)],
+    Hist = folsom_metrics:get_histogram_statistics(N),
+    DDB1 = build_histogram(Hist, Prefix1, Time, DDB),
+    do_metrics(Prefix, Time, Spec, DDB1);
 
-do_vm_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Acc)
-  when byte_size(Acc) >= MaxSize ->
-    ok = gen_udp:send(Socket, Host, Port, Acc),
-    do_vm_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec,
-                  Header);
-
-do_vm_metrics(Socket, Host, Port, Header, Prefix, Time, MaxSize, [_|Spec],
-              Acc) ->
-    do_vm_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec,
-                  Acc).
-
-do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Acc)
-  when byte_size(Acc) >= MaxSize ->
-    ok = gen_udp:send(Socket, Host, Port, Acc),
-    do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Header);
-
-do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
-           [{N, [{type, histogram}]} | Spec], Acc) ->
-    K = <<Prefix/binary, ".", (metric_name(N))/binary>>,
-    Acc1 = build_histogram(folsom_metrics:get_histogram_statistics(N),
-                           K, Time, Acc),
-    do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Acc1);
-
-do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
-           [{N, [{type, spiral}]} | Spec], Acc) ->
+do_metrics(Prefix, Time, [{N, [{type, spiral}]} | Spec], DDB) ->
     [{count, Count}, {one, One}] = folsom_metrics:get_metric_value(N),
-    K = <<Prefix/binary, ".", (metric_name(N))/binary>>,
-    E1 = ?EP(<<K/binary, ".count">>, Time, Count),
-    E2 = ?EP(<<K/binary, ".one">>, Time, One),
-    do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec,
-               <<Acc/binary, E1/binary, E2/binary>>);
+    DDB1 = send([Prefix, metric_name(N), <<"count">>], Time, Count, DDB),
+    DDB2 = send([Prefix, metric_name(N), <<"one">>], Time, One, DDB1),
+    do_metrics(Prefix, Time, Spec, DDB2);
 
-do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
-           [{N, [{type, counter}]} | Spec], Acc) ->
-    K = <<Prefix/binary, ".", (metric_name(N))/binary>>,
+do_metrics(Prefix, Time,
+           [{N, [{type, counter}]} | Spec], DDB) ->
     Count = folsom_metrics:get_metric_value(N),
-    E = ?EP(K, Time, Count),
-    do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec,
-               <<Acc/binary, E/binary>>);
+    DDB1 = send([Prefix, metric_name(N)], Time, Count, DDB),
+    do_metrics(Prefix, Time, Spec, DDB1);
 
-do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
-           [{N, [{type, duration}]} | Spec], Acc) ->
-    K = <<Prefix/binary, ".", (metric_name(N))/binary>>,
-    Acc1 = build_histogram(folsom_metrics:get_metric_value(N),
-                           K, Time, Acc),
-    do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Acc1);
+do_metrics(Prefix, Time,
+           [{N, [{type, duration}]} | Spec], DDB) ->
+    K = [Prefix, metric_name(N)],
+    DDB1 = build_histogram(folsom_metrics:get_metric_value(N),
+                           K, Time, DDB),
+    do_metrics(Prefix, Time, Spec, DDB1);
 
-do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
-           [{N, [{type, meter}]} | Spec], Acc) ->
-    K = <<Prefix/binary, ".", (metric_name(N))/binary>>,
+do_metrics(Prefix, Time,
+           [{N, [{type, meter}]} | Spec], DDB) ->
+    Prefix1 = [Prefix, metric_name(N)],
     Scale = 1000*1000,
     [{count, Count},
      {one, One},
@@ -255,122 +215,113 @@ do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time,
        {five_to_fifteen, FiveToFifteen},
        {one_to_fifteen, OneToFifteen}]}]
         = folsom_metrics:get_metric_value(N),
-    E1 = ?EP(<<K/binary, ".count">>, Time, Count),
-    E2 = ?EP(<<K/binary, ".one">>, Time, round(One*Scale)),
-    E3 = ?EP(<<K/binary, ".five">>, Time, round(Five*Scale)),
-    E4 = ?EP(<<K/binary, ".fifteen">>, Time, round(Fifteen*Scale)),
-    E5 = ?EP(<<K/binary, ".day">>, Time, round(Day*Scale)),
-    E6 = ?EP(<<K/binary, ".mean">>, Time, round(Mean*Scale)),
-    E7 = ?EP(<<K/binary, ".one_to_five">>, Time, round(OneToFive*Scale)),
-    E8 = ?EP(<<K/binary, ".five_to_fifteen">>, Time, round(FiveToFifteen*Scale)),
-    E9 = ?EP(<<K/binary, ".one_to_fifteen">>, Time, round(OneToFifteen*Scale)),
-    Acc1 = <<Acc/binary, E1/binary, E2/binary, E3/binary, E4/binary, E5/binary,
-             E6/binary, E6/binary, E7/binary, E8/binary, E9/binary>>,
-    do_metrics(Socket, Host, Port, Header, Prefix, MaxSize, Time, Spec, Acc1);
+    DDB1 = send([Prefix1, <<"count">>], Time, Count, DDB),
+    DDB2 = send([Prefix1, <<"one">>], Time, round(One*Scale), DDB1),
+    DDB3 = send([Prefix1, <<"five">>], Time, round(Five*Scale), DDB2),
+    DDB4 = send([Prefix1, <<"fifteen">>], Time, round(Fifteen*Scale), DDB3),
+    DDB5 = send([Prefix1, <<"day">>], Time, round(Day*Scale), DDB4),
+    DDB6 = send([Prefix1, <<"mean">>], Time, round(Mean*Scale), DDB5),
+    DDB7 = send([Prefix1, <<"one_to_five">>], Time,
+                round(OneToFive*Scale), DDB6),
+    DDB8 = send([Prefix1, <<"five_to_fifteen">>],
+                Time, round(FiveToFifteen*Scale), DDB7),
+    DDB9 = send([Prefix1, <<"one_to_fifteen">>],
+                Time, round(OneToFifteen*Scale), DDB8),
+    do_metrics(Prefix, Time, Spec, DDB9);
 
-do_metrics(_Socket, _Host, _Port, _Header, _Prefix, _MaxSize, _Time, [], Acc) ->
-    Acc.
+do_metrics(_Prefix, _Time, [], DDB) ->
+    DDB.
 
-build_histogram([], _, _, Acc) ->
-    Acc;
+build_histogram([], _, _, DDB) ->
+    DDB;
 
-build_histogram([{min, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".min">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{min, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"min">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{max, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".max">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{max, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"max">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{arithmetic_mean, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".arithmetic_mean">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{arithmetic_mean, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"arithmetic_mean">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{geometric_mean, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".geometric_mean">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{geometric_mean, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"geometric_mean">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{harmonic_mean, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".harmonic_mean">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{harmonic_mean, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"harmonic_mean">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{median, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".median">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{median, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"median">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{variance, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".variance">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{variance, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"variance">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{standard_deviation, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".standard_deviation">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{standard_deviation, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"standard_deviation">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{skewness, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".skewness">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{skewness, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"skewness">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([{kurtosis, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".kurtosis">>, Time, round(V)),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{kurtosis, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"kurtosis">>], Time, round(V), DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
 build_histogram([{percentile,
                   [{50, P50}, {75, P75}, {90, P90}, {95, P95}, {99, P99},
-                   {999, P999}]} | H], Pfx, Time, Acc) ->
-    E1 = ?EP(<<Pfx/binary, ".p50">>, Time, round(P50)),
-    E2 = ?EP(<<Pfx/binary, ".p75">>, Time, round(P75)),
-    E3 = ?EP(<<Pfx/binary, ".p90">>, Time, round(P90)),
-    E4 = ?EP(<<Pfx/binary, ".p95">>, Time, round(P95)),
-    E5 = ?EP(<<Pfx/binary, ".p99">>, Time, round(P99)),
-    E6 = ?EP(<<Pfx/binary, ".p999">>, Time, round(P999)),
-    build_histogram(H, Pfx, Time, <<Acc/binary, E1/binary, E2/binary, E3/binary,
-                                    E4/binary, E5/binary, E6/binary>>);
+                   {999, P999}]} | H], Pfx, Time, DDB) ->
+    DDB1 = send([Pfx, <<"p50">>], Time, round(P50), DDB),
+    DDB2 = send([Pfx, <<"p75">>], Time, round(P75), DDB1),
+    DDB3 = send([Pfx, <<"p90">>], Time, round(P90), DDB2),
+    DDB4 = send([Pfx, <<"p95">>], Time, round(P95), DDB3),
+    DDB5 = send([Pfx, <<"p99">>], Time, round(P99), DDB4),
+    DDB6 = send([Pfx, <<"p999">>], Time, round(P999), DDB5),
+    build_histogram(H, Pfx, Time, DDB6);
 
-build_histogram([{n, V} | H], Prefix, Time, Acc) ->
-    E = ?EP(<<Prefix/binary, ".count">>, Time, V),
-    build_histogram(H, Prefix, Time, <<Acc/binary, E/binary>>);
+build_histogram([{n, V} | H], Prefix, Time, DDB) ->
+    DDB1 = send([Prefix, <<"count">>], Time, V, DDB),
+    build_histogram(H, Prefix, Time, DDB1);
 
-build_histogram([_ | H], Prefix, Time, Acc) ->
-    build_histogram(H, Prefix, Time, Acc).
+build_histogram([_ | H], Prefix, Time, DDB) ->
+    build_histogram(H, Prefix, Time, DDB).
 
-metric_name(N1) when is_atom(N1) ->
-    erlang:atom_to_binary(N1, utf8);
-metric_name({N1, N2}) when is_atom(N1), is_atom(N2) ->
-    <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
-      (erlang:atom_to_binary(N2, utf8))/binary>>;
-metric_name({N1, N2, N3}) when is_atom(N1), is_atom(N2), is_atom(N3) ->
-    <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
-      (erlang:atom_to_binary(N2, utf8))/binary, ".",
-      (erlang:atom_to_binary(N3, utf8))/binary>>;
-metric_name({N1, N2, N3}) when is_atom(N1), is_atom(N2), is_atom(N3) ->
-    <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
-      (erlang:atom_to_binary(N2, utf8))/binary, ".",
-      (erlang:atom_to_binary(N3, utf8))/binary>>;
-metric_name({N1, N2, N3, N4}) when is_atom(N1), is_atom(N2), is_atom(N3), is_atom(N4) ->
-    <<(erlang:atom_to_binary(N1, utf8))/binary, ".",
-      (erlang:atom_to_binary(N2, utf8))/binary, ".",
-      (erlang:atom_to_binary(N3, utf8))/binary, ".",
-      (erlang:atom_to_binary(N4, utf8))/binary>>;
-metric_name(A) when is_atom(A) ->
-    erlang:atom_to_binary(A, utf8);
 metric_name(B) when is_binary(B) ->
     B;
 metric_name(L) when is_list(L) ->
     erlang:list_to_binary(L);
+metric_name(N1) when
+      is_atom(N1) ->
+    a2b(N1);
+metric_name({N1, N2}) when
+      is_atom(N1), is_atom(N2) ->
+    [a2b(N1), a2b(N2)];
+metric_name({N1, N2, N3}) when
+      is_atom(N1), is_atom(N2), is_atom(N3) ->
+    [a2b(N1), a2b(N2), a2b(N3)];
+metric_name({N1, N2, N3, N4}) when
+      is_atom(N1), is_atom(N2), is_atom(N3), is_atom(N4) ->
+    [a2b(N1), a2b(N2), a2b(N3), a2b(N4)];
 metric_name(T) when is_tuple(T) ->
-    metric_name(tuple_to_list(T),<<>>).
+    [metric_name(DDB) || DDB <- tuple_to_list(T)].
 
-metric_name([N | R], <<>>) ->
-    metric_name(R, metric_name(N));
+a2b(A) ->
+    erlang:atom_to_binary(A, utf8).
 
-metric_name([N | R], Acc) ->
-    metric_name(R, <<Acc/binary, ".", (metric_name(N))/binary>>);
-
-metric_name([], Acc) ->
-    Acc.
 
 timestamp() ->
     {Meg, S, _} = os:timestamp(),
     Meg*1000000 + S.
 
 
+send(Metric, Time, Value, DDB) when is_integer(Value) ->
+    Metric1 = dproto:metric_from_list(lists:flatten(Metric)),
+    {ok, DDB1} = ddb_tcp:send(Metric1, Time, mmath_bin:from_list([Value]), DDB),
+    DDB1.
