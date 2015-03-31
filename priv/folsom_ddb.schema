@@ -2,7 +2,7 @@
 
 %% @doc The DalmatinerDB backend ip and port.
 {mapping, "folsom_ddb.ip", "folsom_ddb.endpoint",
- [{commented, {"127.0.0.1", 4444}},
+ [{commented, {"127.0.0.1", 5555}},
   {datatype, ip}]}.
 
 %% @doc The bucket to store folsom data in.
