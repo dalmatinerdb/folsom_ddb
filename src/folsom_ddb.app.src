@@ -5,7 +5,6 @@
   {registered, []},
   {applications, [
                   kernel,
-                  folsom,
                   stdlib
                  ]},
   {mod, { folsom_ddb_app, []}},
