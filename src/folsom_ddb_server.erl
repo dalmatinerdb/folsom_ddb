@@ -194,7 +194,7 @@ do_metrics(Prefix, Time,
     do_metrics(Prefix, Time, Spec, DDB1);
 
 do_metrics(Prefix, Time,
-           [{N, [{type, counter}]} | Spec], DDB) ->
+           [{N, [{type, gauge}]} | Spec], DDB) ->
     Count = folsom_metrics:get_metric_value(N),
     DDB1 = send([Prefix, metric_name(N)], Time, Count, DDB),
     do_metrics(Prefix, Time, Spec, DDB1);
