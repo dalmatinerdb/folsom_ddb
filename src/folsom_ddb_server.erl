@@ -235,6 +235,31 @@ do_metrics(Prefix, Time,
                 Time, round(OneToFifteen*Scale), DDB8),
     do_metrics(Prefix, Time, Spec, DDB9);
 
+do_metrics(Prefix, Time,
+           [{N, [{type, meter_reader}]} | Spec], DDB) ->
+    Prefix1 = [Prefix, metric_name(N)],
+    Scale = 1000*1000,
+    [{one, One},
+     {five, Five},
+     {fifteen, Fifteen},
+     {mean, Mean},
+     {acceleration,
+      [{one_to_five, OneToFive},
+       {five_to_fifteen, FiveToFifteen},
+       {one_to_fifteen, OneToFifteen}]}]
+        = folsom_metrics:get_metric_value(N),
+    DDB1 = send([Prefix1, <<"one">>], Time, round(One*Scale), DDB),
+    DDB2 = send([Prefix1, <<"five">>], Time, round(Five*Scale), DDB1),
+    DDB3 = send([Prefix1, <<"fifteen">>], Time, round(Fifteen*Scale), DDB2),
+    DDB4 = send([Prefix1, <<"mean">>], Time, round(Mean*Scale), DDB3),
+    DDB5 = send([Prefix1, <<"one_to_five">>], Time,
+                round(OneToFive*Scale), DDB4),
+    DDB6 = send([Prefix1, <<"five_to_fifteen">>],
+                Time, round(FiveToFifteen*Scale), DDB5),
+    DDB7 = send([Prefix1, <<"one_to_fifteen">>],
+                Time, round(OneToFifteen*Scale), DDB6),
+    do_metrics(Prefix, Time, Spec, DDB7);
+
 do_metrics(_Prefix, _Time, [], DDB) ->
     DDB.
 
