@@ -73,7 +73,12 @@ init([]) ->
                                 []
                         end,
             {ok, DDB} = ddb_tcp:connect(Host, Port),
-            {ok, DDB1} = ddb_tcp:stream_mode(Bucket, Interval div 1000, DDB),
+            DDB1 = case ddb_tcp:stream_mode(Bucket, Interval div 1000, DDB) of
+                       {ok, DDBx} ->
+                           DDBx;
+                       {error, _, DDBx} ->
+                           DDBx
+                   end,
             Ref = erlang:start_timer(Interval, self(), tick),
             {ok, #state{ref = Ref, interval = Interval, prefix = [Prefix],
                         vm_metrics = VMMetrics, ddb = DDB1}};
@@ -354,5 +359,9 @@ timestamp() ->
 
 send(Metric, Time, Value, DDB) when is_integer(Value) ->
     Metric1 = dproto:metric_from_list(lists:flatten(Metric)),
-    {ok, DDB1} = ddb_tcp:send(Metric1, Time, mmath_bin:from_list([Value]), DDB),
-    DDB1.
+    case ddb_tcp:send(Metric1, Time, mmath_bin:from_list([Value]), DDB) of
+        {ok, DDB1} ->
+            DDB1;
+        {error, _, DDB1} ->
+            DDB1
+    end.
