@@ -132,11 +132,11 @@ handle_info({timeout, _R, tick},
                    vm_metrics = VMSpec, prefix = Prefix}
             = State) ->
     Time = timestamp(),
-    DDB1 = ddb:batch_start(Time, DDB),
+    DDB1 = ddb_tcp:batch_start(Time, DDB),
     DDB2 = do_vm_metrics(Prefix, VMSpec, DDB1),
     Spec = folsom_metrics:get_metrics_info(),
     DDB3 = do_metrics(Prefix, Spec, DDB2),
-    DDB4 = ddb:batch_end(DDB3),
+    DDB4 = ddb_tcp:batch_end(DDB3),
     Ref = erlang:start_timer(FlushInterval, self(), tick),
     {noreply, State#state{ref = Ref, ddb = DDB4}};
 
