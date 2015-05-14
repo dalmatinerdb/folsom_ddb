@@ -132,11 +132,12 @@ handle_info({timeout, _R, tick},
                    vm_metrics = VMSpec, prefix = Prefix}
             = State) ->
     Time = timestamp(),
-    DDB1 = ddb_tcp:batch_start(Time, DDB),
+
+    DDB1 = ddb_reply(ddb_tcp:batch_start(Time, DDB)),
     DDB2 = do_vm_metrics(Prefix, VMSpec, DDB1),
     Spec = folsom_metrics:get_metrics_info(),
     DDB3 = do_metrics(Prefix, Spec, DDB2),
-    DDB4 = ddb_tcp:batch_end(DDB3),
+    DDB4 = ddb_reply(ddb_tcp:batch_end(DDB3))
     Ref = erlang:start_timer(FlushInterval, self(), tick),
     {noreply, State#state{ref = Ref, ddb = DDB4}};
 
@@ -357,18 +358,14 @@ timestamp() ->
 send(MVs, DDB) ->
     MVs1 = [{lists:flatten(Metric), mmath_bin:from_list([Value])}
            || {Metric, Value} <- MVs],
-    case ddb_tcp:batch(MVs1, DDB) of
-        {ok, DDB1} ->
-            DDB1;
-        {error, _, DDB1} ->
-            DDB1
-    end.
+    ddb_reply(ddb_tcp:batch(MVs1, DDB)).
 
 send(Metric, Value, DDB) when is_integer(Value) ->
     Metric1 = lists:flatten(Metric),
-    case ddb_tcp:batch(Metric1, mmath_bin:from_list([Value]), DDB) of
-        {ok, DDB1} ->
-            DDB1;
-        {error, _, DDB1} ->
-            DDB1
-    end.
+    ddb_reply(ddb_tcp:batch(Metric1, mmath_bin:from_list([Value]), DDB)).
+
+ddb_reply({ok, DDB}) ->
+    DDB;
+ddb_reply({error, _, DDB}) ->
+    DDB.
+
