@@ -137,7 +137,7 @@ handle_info({timeout, _R, tick},
     DDB2 = do_vm_metrics(Prefix, VMSpec, DDB1),
     Spec = folsom_metrics:get_metrics_info(),
     DDB3 = do_metrics(Prefix, Spec, DDB2),
-    DDB4 = ddb_reply(ddb_tcp:batch_end(DDB3))
+    DDB4 = ddb_reply(ddb_tcp:batch_end(DDB3)),
     Ref = erlang:start_timer(FlushInterval, self(), tick),
     {noreply, State#state{ref = Ref, ddb = DDB4}};
 
@@ -349,7 +349,6 @@ metric_name(T) when is_tuple(T) ->
 
 a2b(A) ->
     erlang:atom_to_binary(A, utf8).
-
 
 timestamp() ->
     {Meg, S, _} = os:timestamp(),
