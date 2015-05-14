@@ -132,11 +132,13 @@ handle_info({timeout, _R, tick},
                    vm_metrics = VMSpec, prefix = Prefix}
             = State) ->
     Time = timestamp(),
-    DDB1 = do_vm_metrics(Prefix, Time, VMSpec, DDB),
+    DDB1 = ddb:batch_start(Time, DDB),
+    DDB2 = do_vm_metrics(Prefix, VMSpec, DDB1),
     Spec = folsom_metrics:get_metrics_info(),
-    DDB2 = do_metrics(Prefix, Time, Spec, DDB1),
+    DDB3 = do_metrics(Prefix, Spec, DDB2),
+    DDB4 = ddb:batch_end(DDB3),
     Ref = erlang:start_timer(FlushInterval, self(), tick),
-    {noreply, State#state{ref = Ref, ddb = DDB2}};
+    {noreply, State#state{ref = Ref, ddb = DDB4}};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -173,45 +175,45 @@ code_change(_OldVsn, State, _DDBxtra) ->
 %%% Internal functions
 %%%===================================================================
 
-do_vm_metrics(_Prefix, _Time, [], DDB) ->
+do_vm_metrics(_Prefix, [], DDB) ->
     DDB;
 
-do_vm_metrics(Prefix, Time, [_|Spec], DDB) ->
-    do_vm_metrics(Prefix, Time, Spec, DDB).
+do_vm_metrics(Prefix, [_|Spec], DDB) ->
+    do_vm_metrics(Prefix, Spec, DDB).
 
 
-do_metrics(Prefix, Time, [{N, [{type, histogram}]} | Spec], DDB) ->
+do_metrics(Prefix, [{N, [{type, histogram}]} | Spec], DDB) ->
     Prefix1 = [Prefix, metric_name(N)],
     Hist = folsom_metrics:get_histogram_statistics(N),
-    DDB1 = build_histogram(Hist, Prefix1, Time, DDB),
-    do_metrics(Prefix, Time, Spec, DDB1);
+    DDB1 = build_histogram(Hist, Prefix1, DDB),
+    do_metrics(Prefix, Spec, DDB1);
 
-do_metrics(Prefix, Time, [{N, [{type, spiral}]} | Spec], DDB) ->
+do_metrics(Prefix, [{N, [{type, spiral}]} | Spec], DDB) ->
     [{count, Count}, {one, One}] = folsom_metrics:get_metric_value(N),
-    DDB1 = send([Prefix, metric_name(N), <<"count">>], Time, Count, DDB),
-    DDB2 = send([Prefix, metric_name(N), <<"one">>], Time, One, DDB1),
-    do_metrics(Prefix, Time, Spec, DDB2);
+    DDB1 = send([{[Prefix, metric_name(N), <<"count">>], Count},
+                 {[Prefix, metric_name(N), <<"one">>], One}], DDB),
+    do_metrics(Prefix, Spec, DDB1);
 
-do_metrics(Prefix, Time,
+do_metrics(Prefix,
            [{N, [{type, counter}]} | Spec], DDB) ->
     Count = folsom_metrics:get_metric_value(N),
-    DDB1 = send([Prefix, metric_name(N)], Time, Count, DDB),
-    do_metrics(Prefix, Time, Spec, DDB1);
+    DDB1 = send([Prefix, metric_name(N)], Count, DDB),
+    do_metrics(Prefix, Spec, DDB1);
 
-do_metrics(Prefix, Time,
+do_metrics(Prefix,
            [{N, [{type, gauge}]} | Spec], DDB) ->
     Count = folsom_metrics:get_metric_value(N),
-    DDB1 = send([Prefix, metric_name(N)], Time, Count, DDB),
-    do_metrics(Prefix, Time, Spec, DDB1);
+    DDB1 = send([Prefix, metric_name(N)], Count, DDB),
+    do_metrics(Prefix, Spec, DDB1);
 
-do_metrics(Prefix, Time,
+do_metrics(Prefix,
            [{N, [{type, duration}]} | Spec], DDB) ->
     K = [Prefix, metric_name(N)],
     DDB1 = build_histogram(folsom_metrics:get_metric_value(N),
-                           K, Time, DDB),
-    do_metrics(Prefix, Time, Spec, DDB1);
+                           K, DDB),
+    do_metrics(Prefix, Spec, DDB1);
 
-do_metrics(Prefix, Time,
+do_metrics(Prefix,
            [{N, [{type, meter}]} | Spec], DDB) ->
     Prefix1 = [Prefix, metric_name(N)],
     Scale = 1000*1000,
@@ -226,21 +228,19 @@ do_metrics(Prefix, Time,
        {five_to_fifteen, FiveToFifteen},
        {one_to_fifteen, OneToFifteen}]}]
         = folsom_metrics:get_metric_value(N),
-    DDB1 = send([Prefix1, <<"count">>], Time, Count, DDB),
-    DDB2 = send([Prefix1, <<"one">>], Time, round(One*Scale), DDB1),
-    DDB3 = send([Prefix1, <<"five">>], Time, round(Five*Scale), DDB2),
-    DDB4 = send([Prefix1, <<"fifteen">>], Time, round(Fifteen*Scale), DDB3),
-    DDB5 = send([Prefix1, <<"day">>], Time, round(Day*Scale), DDB4),
-    DDB6 = send([Prefix1, <<"mean">>], Time, round(Mean*Scale), DDB5),
-    DDB7 = send([Prefix1, <<"one_to_five">>], Time,
-                round(OneToFive*Scale), DDB6),
-    DDB8 = send([Prefix1, <<"five_to_fifteen">>],
-                Time, round(FiveToFifteen*Scale), DDB7),
-    DDB9 = send([Prefix1, <<"one_to_fifteen">>],
-                Time, round(OneToFifteen*Scale), DDB8),
-    do_metrics(Prefix, Time, Spec, DDB9);
+    DDB1 = send([{[Prefix1, <<"count">>], Count},
+                 {[Prefix1, <<"one">>], round(One*Scale)},
+                 {[Prefix1, <<"five">>], round(Five*Scale)},
+                 {[Prefix1, <<"fifteen">>], round(Fifteen*Scale)},
+                 {[Prefix1, <<"day">>], round(Day*Scale)},
+                 {[Prefix1, <<"mean">>], round(Mean*Scale)},
+                 {[Prefix1, <<"one_to_five">>], round(OneToFive*Scale)},
+                 {[Prefix1, <<"five_to_fifteen">>], round(FiveToFifteen*Scale)},
+                 {[Prefix1, <<"one_to_fifteen">>], round(OneToFifteen*Scale)}],
+                DDB),
+    do_metrics(Prefix, Spec, DDB1);
 
-do_metrics(Prefix, Time,
+do_metrics(Prefix,
            [{N, [{type, meter_reader}]} | Spec], DDB) ->
     Prefix1 = [Prefix, metric_name(N)],
     Scale = 1000*1000,
@@ -253,81 +253,79 @@ do_metrics(Prefix, Time,
        {five_to_fifteen, FiveToFifteen},
        {one_to_fifteen, OneToFifteen}]}]
         = folsom_metrics:get_metric_value(N),
-    DDB1 = send([Prefix1, <<"one">>], Time, round(One*Scale), DDB),
-    DDB2 = send([Prefix1, <<"five">>], Time, round(Five*Scale), DDB1),
-    DDB3 = send([Prefix1, <<"fifteen">>], Time, round(Fifteen*Scale), DDB2),
-    DDB4 = send([Prefix1, <<"mean">>], Time, round(Mean*Scale), DDB3),
-    DDB5 = send([Prefix1, <<"one_to_five">>], Time,
-                round(OneToFive*Scale), DDB4),
-    DDB6 = send([Prefix1, <<"five_to_fifteen">>],
-                Time, round(FiveToFifteen*Scale), DDB5),
-    DDB7 = send([Prefix1, <<"one_to_fifteen">>],
-                Time, round(OneToFifteen*Scale), DDB6),
-    do_metrics(Prefix, Time, Spec, DDB7);
+    DDB1 = send([{[Prefix1, <<"one">>], round(One*Scale)},
+                 {[Prefix1, <<"five">>], round(Five*Scale)},
+                 {[Prefix1, <<"fifteen">>], round(Fifteen*Scale)},
+                 {[Prefix1, <<"mean">>], round(Mean*Scale)},
+                 {[Prefix1, <<"one_to_five">>], round(OneToFive*Scale)},
+                 {[Prefix1, <<"five_to_fifteen">>], round(FiveToFifteen*Scale)},
+                 {[Prefix1, <<"one_to_fifteen">>], round(OneToFifteen*Scale)}],
+                DDB),
+    do_metrics(Prefix, Spec, DDB1);
 
-do_metrics(_Prefix, _Time, [], DDB) ->
+do_metrics(_Prefix, [], DDB) ->
     DDB.
 
-build_histogram([], _, _, DDB) ->
+build_histogram([], _, DDB) ->
     DDB;
 
-build_histogram([{min, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"min">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{min, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"min">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{max, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"max">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{max, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"max">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{arithmetic_mean, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"arithmetic_mean">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{arithmetic_mean, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"arithmetic_mean">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{geometric_mean, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"geometric_mean">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{geometric_mean, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"geometric_mean">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{harmonic_mean, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"harmonic_mean">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{harmonic_mean, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"harmonic_mean">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{median, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"median">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{median, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"median">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{variance, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"variance">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{variance, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"variance">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{standard_deviation, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"standard_deviation">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{standard_deviation, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"standard_deviation">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{skewness, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"skewness">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{skewness, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"skewness">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([{kurtosis, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"kurtosis">>], Time, round(V), DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{kurtosis, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"kurtosis">>], round(V), DDB),
+    build_histogram(H, Prefix, DDB1);
 
 build_histogram([{percentile,
                   [{50, P50}, {75, P75}, {90, P90}, {95, P95}, {99, P99},
-                   {999, P999}]} | H], Pfx, Time, DDB) ->
-    DDB1 = send([Pfx, <<"p50">>], Time, round(P50), DDB),
-    DDB2 = send([Pfx, <<"p75">>], Time, round(P75), DDB1),
-    DDB3 = send([Pfx, <<"p90">>], Time, round(P90), DDB2),
-    DDB4 = send([Pfx, <<"p95">>], Time, round(P95), DDB3),
-    DDB5 = send([Pfx, <<"p99">>], Time, round(P99), DDB4),
-    DDB6 = send([Pfx, <<"p999">>], Time, round(P999), DDB5),
-    build_histogram(H, Pfx, Time, DDB6);
+                   {999, P999}]} | H], Pfx, DDB) ->
+    DDB1 = send([{[Pfx, <<"p50">>], round(P50)},
+                 {[Pfx, <<"p75">>], round(P75)},
+                 {[Pfx, <<"p90">>], round(P90)},
+                 {[Pfx, <<"p95">>], round(P95)},
+                 {[Pfx, <<"p99">>], round(P99)},
+                 {[Pfx, <<"p999">>], round(P999)}], DDB),
+    build_histogram(H, Pfx, DDB1);
 
-build_histogram([{n, V} | H], Prefix, Time, DDB) ->
-    DDB1 = send([Prefix, <<"count">>], Time, V, DDB),
-    build_histogram(H, Prefix, Time, DDB1);
+build_histogram([{n, V} | H], Prefix, DDB) ->
+    DDB1 = send([Prefix, <<"count">>], V, DDB),
+    build_histogram(H, Prefix, DDB1);
 
-build_histogram([_ | H], Prefix, Time, DDB) ->
-    build_histogram(H, Prefix, Time, DDB).
+build_histogram([_ | H], Prefix, DDB) ->
+    build_histogram(H, Prefix, DDB).
 
 metric_name(B) when is_binary(B) ->
     B;
@@ -356,10 +354,19 @@ timestamp() ->
     {Meg, S, _} = os:timestamp(),
     Meg*1000000 + S.
 
+send(MVs, DDB) ->
+    MVs1 = [{lists:flatten(Metric), mmath_bin:from_list([Value])}
+           || {Metric, Value} <- MVs],
+    case ddb_tcp:batch(MVs1, DDB) of
+        {ok, DDB1} ->
+            DDB1;
+        {error, _, DDB1} ->
+            DDB1
+    end.
 
-send(Metric, Time, Value, DDB) when is_integer(Value) ->
-    Metric1 = dproto:metric_from_list(lists:flatten(Metric)),
-    case ddb_tcp:send(Metric1, Time, mmath_bin:from_list([Value]), DDB) of
+send(Metric, Value, DDB) when is_integer(Value) ->
+    Metric1 = lists:flatten(Metric),
+    case ddb_tcp:batch(Metric1, mmath_bin:from_list([Value]), DDB) of
         {ok, DDB1} ->
             DDB1;
         {error, _, DDB1} ->
