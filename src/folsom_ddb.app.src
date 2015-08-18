@@ -1,17 +1,11 @@
-{application, folsom_ddb,
- [
-  {description, "DalmatinerDB backend to store folsom metrics"},
-  {vsn, "0.1.14"},
-  {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib,
-                  mmath,
-                  ddb_client
-                 ]},
-  {mod, { folsom_ddb_app, []}},
-  {env, []},
-  {contributors, ["Heinz N. Gies"]},
-  {licenses, ["MIT"]},
-  {links, [{"Github", "https://github.com/dalmatinerdb/folsom_ddb"}]}
- ]}.
+{application,folsom_ddb,
+             [{description,"DalmatinerDB backend to store folsom metrics"},
+              {vsn,"0.1.15"},
+              {registered,[]},
+              {applications,[kernel,stdlib,mmath,ddb_client]},
+              {mod,{folsom_ddb_app,[]}},
+              {env,[]},
+              {contributors,["Heinz N. Gies"]},
+              {licenses,["MIT"]},
+              {links,[{"Github",
+                       "https://github.com/dalmatinerdb/folsom_ddb"}]}]}.
