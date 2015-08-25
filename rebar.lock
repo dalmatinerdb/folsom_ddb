@@ -2,7 +2,7 @@
   {git,"git://github.com/basho/bear.git",
        {ref,"da820a13c607c3f816ee8b83c587266da5389761"}},
   1},
- {<<"ddb_client">>,{pkg,<<"ddb_client">>,<<"0.1.11">>},0},
+ {<<"ddb_client">>,{pkg,<<"ddb_client">>,<<"0.1.12">>},0},
  {<<"dproto">>,{pkg,<<"dproto">>,<<"0.1.9">>},1},
  {<<"folsom">>,
   {git,"https://github.com/basho/folsom.git",
