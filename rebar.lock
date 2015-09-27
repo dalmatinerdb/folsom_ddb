@@ -2,8 +2,8 @@
   {git,"git://github.com/basho/bear.git",
        {ref,"da820a13c607c3f816ee8b83c587266da5389761"}},
   1},
- {<<"ddb_client">>,{pkg,<<"ddb_client">>,<<"0.1.12">>},0},
- {<<"dproto">>,{pkg,<<"dproto">>,<<"0.1.9">>},1},
+ {<<"ddb_client">>,{pkg,<<"ddb_client">>,<<"0.1.13">>},0},
+ {<<"dproto">>,{pkg,<<"dproto">>,<<"0.1.10">>},1},
  {<<"folsom">>,
   {git,"https://github.com/basho/folsom.git",
        {ref,"72944523b6467c9f7add5f1c96dd5020424a2681"}},
@@ -12,4 +12,4 @@
   {git,"git://github.com/basho/meck.git",
        {ref,"dde759050eff19a1a80fd854d7375174b191665d"}},
   1},
- {<<"mmath">>,{pkg,<<"mmath">>,<<"0.1.7">>},1}].
+ {<<"mmath">>,{pkg,<<"mmath">>,<<"0.1.13">>},1}].
