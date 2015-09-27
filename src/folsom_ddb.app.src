@@ -1,6 +1,6 @@
 {application,folsom_ddb,
              [{description,"DalmatinerDB backend to store folsom metrics"},
-              {vsn,"0.1.16"},
+              {vsn,"0.1.18"},
               {registered,[]},
               {applications,[kernel,stdlib,mmath,ddb_client]},
               {mod,{folsom_ddb_app,[]}},
