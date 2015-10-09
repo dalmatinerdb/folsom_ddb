@@ -21,8 +21,11 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {
+          host :: undefined,
+          port :: undefined | pos_integer(),
+          bucket :: binary(),
           ref :: reference(),
-          ddb = dunefined,
+          ddb = undefined,
           interval = 1000 :: pos_integer(),
           vm_metrics = [] :: list(),
           prefix = [<<"folsom">>]:: [binary()]
@@ -58,9 +61,9 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+    process_flag(trap_exit, true),
     case application:get_env(folsom_ddb, endpoint) of
         {ok, {Host, Port}} ->
-            process_flag(trap_exit, true),
             {ok, BucketS} = application:get_env(folsom_ddb, bucket),
             Bucket = list_to_binary(BucketS),
             {ok, PrefixS} = application:get_env(folsom_ddb, prefix),
@@ -72,16 +75,9 @@ init([]) ->
                             _ ->
                                 []
                         end,
-            {ok, DDB} = ddb_tcp:connect(Host, Port),
-            DDB1 = case ddb_tcp:stream_mode(Bucket, Interval div 1000, DDB) of
-                       {ok, DDBx} ->
-                           DDBx;
-                       {error, _, DDBx} ->
-                           DDBx
-                   end,
-            Ref = erlang:start_timer(Interval, self(), tick),
-            {ok, #state{ref = Ref, interval = Interval, prefix = [Prefix],
-                        vm_metrics = VMMetrics, ddb = DDB1}};
+            {ok, #state{interval = Interval, prefix = [Prefix], bucket = Bucket,
+                        vm_metrics = VMMetrics, host = Host, port = Port},
+             0};
         _ ->
             {ok, #state{}}
     end.
@@ -140,6 +136,18 @@ handle_info({timeout, _R, tick},
     DDB4 = ddb_reply(ddb_tcp:batch_end(DDB3)),
     Ref = erlang:start_timer(FlushInterval, self(), tick),
     {noreply, State#state{ref = Ref, ddb = DDB4}};
+
+handle_info(timeout, State = #state{host = Host, port = Port, bucket = Bucket,
+                                    interval = Interval}) ->
+    {ok, DDB} = ddb_tcp:connect(Host, Port),
+    DDB1 = case ddb_tcp:stream_mode(Bucket, Interval div 1000, DDB) of
+               {ok, DDBx} ->
+                   DDBx;
+               {error, _, DDBx} ->
+                   DDBx
+           end,
+    Ref = erlang:start_timer(Interval, self(), tick),
+    {noreply, State#state{ddb = DDB1, ref = Ref}};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -351,8 +359,7 @@ a2b(A) ->
     erlang:atom_to_binary(A, utf8).
 
 timestamp() ->
-    {Meg, S, _} = os:timestamp(),
-    Meg*1000000 + S.
+    erlang:system_time(seconds).
 
 send(MVs, DDB) ->
     MVs1 = [{lists:flatten(Metric), mmath_bin:from_list([Value])}
