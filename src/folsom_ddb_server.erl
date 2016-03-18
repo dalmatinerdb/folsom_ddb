@@ -366,6 +366,8 @@ send(MVs, DDB) ->
            || {Metric, Value} <- MVs],
     ddb_reply(ddb_tcp:batch(MVs1, DDB)).
 
+send(Metric, Value, DDB) when is_float(Value) ->
+    send(Metric, round(Value), DDB);
 send(Metric, Value, DDB) when is_integer(Value) ->
     Metric1 = lists:flatten(Metric),
     ddb_reply(ddb_tcp:batch(Metric1, mmath_bin:from_list([Value]), DDB)).
