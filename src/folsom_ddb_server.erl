@@ -191,39 +191,39 @@ do_vm_metrics(Prefix, [_|Spec], DDB) ->
     do_vm_metrics(Prefix, Spec, DDB).
 
 
-do_metrics(Prefix, [{N, [{type, histogram}]} | Spec], DDB) ->
+do_metrics(Prefix, [{N, [{type, histogram} | _]} | Spec], DDB) ->
     Prefix1 = [Prefix, metric_name(N)],
     Hist = folsom_metrics:get_histogram_statistics(N),
     DDB1 = build_histogram(Hist, Prefix1, DDB),
     do_metrics(Prefix, Spec, DDB1);
 
-do_metrics(Prefix, [{N, [{type, spiral}]} | Spec], DDB) ->
+do_metrics(Prefix, [{N, [{type, spiral} | _]} | Spec], DDB) ->
     [{count, Count}, {one, One}] = folsom_metrics:get_metric_value(N),
     DDB1 = send([{[Prefix, metric_name(N), <<"count">>], Count},
                  {[Prefix, metric_name(N), <<"one">>], One}], DDB),
     do_metrics(Prefix, Spec, DDB1);
 
 do_metrics(Prefix,
-           [{N, [{type, counter}]} | Spec], DDB) ->
+           [{N, [{type, counter} | _]} | Spec], DDB) ->
     Count = folsom_metrics:get_metric_value(N),
     DDB1 = send([Prefix, metric_name(N)], Count, DDB),
     do_metrics(Prefix, Spec, DDB1);
 
 do_metrics(Prefix,
-           [{N, [{type, gauge}]} | Spec], DDB) ->
+           [{N, [{type, gauge} | _]} | Spec], DDB) ->
     Count = folsom_metrics:get_metric_value(N),
     DDB1 = send([Prefix, metric_name(N)], Count, DDB),
     do_metrics(Prefix, Spec, DDB1);
 
 do_metrics(Prefix,
-           [{N, [{type, duration}]} | Spec], DDB) ->
+           [{N, [{type, duration} | _]} | Spec], DDB) ->
     K = [Prefix, metric_name(N)],
     DDB1 = build_histogram(folsom_metrics:get_metric_value(N),
                            K, DDB),
     do_metrics(Prefix, Spec, DDB1);
 
 do_metrics(Prefix,
-           [{N, [{type, meter}]} | Spec], DDB) ->
+           [{N, [{type, meter} | _]} | Spec], DDB) ->
     Prefix1 = [Prefix, metric_name(N)],
     Scale = 1000*1000,
     [{count, Count},
@@ -250,7 +250,7 @@ do_metrics(Prefix,
     do_metrics(Prefix, Spec, DDB1);
 
 do_metrics(Prefix,
-           [{N, [{type, meter_reader}]} | Spec], DDB) ->
+           [{N, [{type, meter_reader} | _]} | Spec], DDB) ->
     Prefix1 = [Prefix, metric_name(N)],
     Scale = 1000*1000,
     [{one, One},
