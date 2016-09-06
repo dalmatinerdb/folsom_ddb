@@ -1,6 +1,6 @@
 [{<<"bear">>,{pkg,<<"bear">>,<<"0.8.3">>},1},
- {<<"ddb_client">>,{pkg,<<"ddb_client">>,<<"0.1.26">>},0},
- {<<"ddb_connection">>,{pkg,<<"ddb_connection">>,<<"0.1.8">>},1},
+ {<<"ddb_client">>,{pkg,<<"ddb_client">>,<<"0.1.28">>},0},
+ {<<"ddb_connection">>,{pkg,<<"ddb_connection">>,<<"0.1.10">>},1},
  {<<"dproto">>,{pkg,<<"dproto">>,<<"0.1.20">>},1},
  {<<"dqe_idx">>,{pkg,<<"dqe_idx">>,<<"0.1.18">>},0},
  {<<"dqe_idx_ddb">>,{pkg,<<"dqe_idx_ddb">>,<<"0.1.14">>},0},
@@ -9,6 +9,7 @@
  {<<"folsom">>,{pkg,<<"folsom">>,<<"0.8.3">>},0},
  {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.8">>},2},
  {<<"lager">>,{pkg,<<"lager">>,<<"3.2.1">>},1},
- {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.7">>},1},
+ {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.9">>},1},
  {<<"pgapp">>,{pkg,<<"pgapp">>,<<"0.0.1">>},1},
- {<<"poolboy">>,{pkg,<<"poolboy">>,<<"1.5.1">>},2}].
+ {<<"poolboy">>,{pkg,<<"poolboy">>,<<"1.5.1">>},2},
+ {<<"snappy">>,{pkg,<<"snappy">>,<<"1.1.1">>},1}].
