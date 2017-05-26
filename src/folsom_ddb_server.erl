@@ -23,8 +23,8 @@
 -record(state, {
           host :: undefined,
           port :: undefined | pos_integer(),
-          bucket :: binary(),
-          ref :: reference(),
+          bucket :: binary() | undefined,
+          ref :: reference() | undefined,
           ddb = undefined,
           interval = 1000 :: pos_integer(),
           vm_metrics = [] :: list(),
