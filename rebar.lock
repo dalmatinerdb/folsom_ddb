@@ -1,14 +1,14 @@
 {"1.1.0",
-[{<<"bear">>,{pkg,<<"bear">>,<<"0.8.3">>},1},
+[{<<"bear">>,{pkg,<<"bear">>,<<"0.8.5">>},1},
  {<<"ddb_client">>,{pkg,<<"ddb_client">>,<<"0.5.5">>},0},
  {<<"ddb_connection">>,{pkg,<<"ddb_connection">>,<<"0.4.2">>},1},
  {<<"dproto">>,{pkg,<<"dproto">>,<<"0.5.2">>},1},
  {<<"dqe_idx">>,{pkg,<<"dqe_idx">>,<<"0.3.0">>},0},
  {<<"dqe_idx_ddb">>,{pkg,<<"dqe_idx_ddb">>,<<"0.4.0">>},0},
- {<<"dqe_idx_pg">>,{pkg,<<"dqe_idx_pg">>,<<"0.4.0">>},0},
+ {<<"dqe_idx_pg">>,{pkg,<<"dqe_idx_pg">>,<<"0.4.4">>},0},
  {<<"dynamic_compile">>,{pkg,<<"dynamic_compile">>,<<"1.0.0">>},3},
  {<<"epgsql">>,{pkg,<<"epgsql">>,<<"3.3.0">>},2},
- {<<"folsom">>,{pkg,<<"folsom">>,<<"0.8.3">>},0},
+ {<<"folsom">>,{pkg,<<"folsom">>,<<"0.8.5">>},0},
  {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.9">>},2},
  {<<"ibrowse">>,{pkg,<<"ibrowse">>,<<"4.4.0">>},3},
  {<<"jsxd">>,{pkg,<<"jsxd">>,<<"0.2.4">>},2},
@@ -17,19 +17,20 @@
  {<<"otters">>,{pkg,<<"otters">>,<<"0.2.8">>},2},
  {<<"pgapp">>,{pkg,<<"pgapp">>,<<"0.0.2">>},1},
  {<<"poolboy">>,{pkg,<<"poolboy">>,<<"1.5.1">>},2},
- {<<"snappiest">>,{pkg,<<"snappiest">>,<<"1.2.0">>},2}]}.
+ {<<"snappiest">>,{pkg,<<"snappiest">>,<<"1.2.0">>},2},
+ {<<"sqlmig">>,{pkg,<<"sqlmig">>,<<"0.1.5">>},1}]}.
 [
 {pkg_hash,[
- {<<"bear">>, <<"866002127A97932720A0D475D8582C98EC5FB78DB3A18DFE7EAF91594D9024B8">>},
+ {<<"bear">>, <<"E95FCA1627CD9E15BAF93CE0A52AFF16917BAF325F0EE65B88CD715376CD2344">>},
  {<<"ddb_client">>, <<"86DDDCE3B379DD3B0B425299DCE86CA49AB00DE8B59DE876EF3F1FA780F39F11">>},
  {<<"ddb_connection">>, <<"D59222829EE5DFF89690AAD2E26D422C30BB14F1AA5A61A7921BF02D58735DB8">>},
  {<<"dproto">>, <<"D1C9929353589BD395CAB3E5C6E1CFC4DC8B0660527145E2DD221771D4467ABD">>},
  {<<"dqe_idx">>, <<"EDCA91E5130C532D4B33AF678197ADC25AA4FA7471AC75033290F8AD8392874D">>},
  {<<"dqe_idx_ddb">>, <<"815DB58A7ED01A7040E43A9228DDD119738C4C743F1F33D61E550AAE83CF4319">>},
- {<<"dqe_idx_pg">>, <<"198FDE786226CB4688C3F9A06A74C765CAAFF0ED0F5528A4D56D73A54305F2FA">>},
+ {<<"dqe_idx_pg">>, <<"1A1AC02E5372DF932D1A0DEEB7C018BF744E8275FF502E4710637DD92285A0B1">>},
  {<<"dynamic_compile">>, <<"8171B2CB4953EA3ED2EF63F5B26ABF677ACD0CA32210C2A08A7A8406A743F76B">>},
  {<<"epgsql">>, <<"974A578340E52012CBAB820CE756E7ED1DF1BAF0110C59A6753D8337A2CF9454">>},
- {<<"folsom">>, <<"71CFF146152FA95E6092E62119F9DC96888660111E7B61853C8FDCF80598A4E0">>},
+ {<<"folsom">>, <<"94A027B56FE84FEED264F9B33CB4C6AC9A801FAD84B87DBDA0836CE83C3B8D69">>},
  {<<"goldrush">>, <<"F06E5D5F1277DA5C413E84D5A2924174182FB108DABB39D5EC548B27424CD106">>},
  {<<"ibrowse">>, <<"2D923325EFE0D2CB09B9C6A047B2835A5EDA69D8A47ED6FF8BC03628B764E991">>},
  {<<"jsxd">>, <<"C14114AFCA463F2D03D3FB6CC81FD51CDA8CA86A47E5AC3ABDF0CA572A73A413">>},
@@ -38,5 +39,6 @@
  {<<"otters">>, <<"4D28D810E3311E9BC845FBA20EBBE88CFF4AC26320B56A277603DDE134F24DC1">>},
  {<<"pgapp">>, <<"3E104BB777C8455D8B26D1538B67ABE0188EE97B1DF973FD936C2204CB316196">>},
  {<<"poolboy">>, <<"6B46163901CFD0A1B43D692657ED9D7E599853B3B21B95AE5AE0A777CF9B6CA8">>},
- {<<"snappiest">>, <<"25706FEBB5ECAEA900D879A89C6D967C8D1BF700F8546BEBD0DEA514A8CCBFB7">>}]}
+ {<<"snappiest">>, <<"25706FEBB5ECAEA900D879A89C6D967C8D1BF700F8546BEBD0DEA514A8CCBFB7">>},
+ {<<"sqlmig">>, <<"8208D222A9335C1B1171F4FD1CE4150CF28B1FDF37CA9A66715AC434ED9B9AF4">>}]}
 ].
